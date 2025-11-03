@@ -1,8 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { User } from './types';
 import RegistrationForm from './components/RegistrationForm';
 import SelectionPanel from './components/SelectionPanel';
+// Fix: Import UserList to display registered participants.
+import UserList from './components/UserList';
+import { supabase } from './supabaseClient';
 
 const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -10,38 +13,92 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleRegister = (name: string, email: string) => {
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const { data: users, error } = await supabase
+        .from('participants')
+        .select('*');
+      
+      if (error) {
+        setError('Could not fetch participants.');
+        console.error(error);
+      } else {
+        setUsers(users);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  const handleRegister = async (name: string, email: string) => {
     setError(null);
-    // Validation for name/email format is now handled in RegistrationForm
+    if (!name.trim() || !email.trim()) {
+      setError('Name and email cannot be empty.');
+      return;
+    }
+
     if (users.some((user) => user.email === email)) {
       setError('This email has already been registered.');
       return;
     }
 
-    const newUser: User = {
-      id: Date.now(),
-      name,
-      email,
-    };
-    setUsers([...users, newUser]);
+    const { data, error: insertError } = await supabase
+      .from('participants')
+      .insert([{ name, email }])
+      .select();
+
+    if (insertError) {
+      setError('Failed to register participant. The email might already exist.');
+      console.error(insertError);
+    } else if (data) {
+      setUsers([...users, ...data]);
+    }
   };
 
-  const handleSelectWinner = () => {
-    if (users.length < 2) return;
+  const handleSelectWinner = async () => {
     setIsLoading(true);
     setSelectedUser(null);
+    setError(null);
+
+    // Fetch the latest list of participants from Supabase
+    const { data: currentParticipants, error: fetchError } = await supabase
+      .from('participants')
+      .select('*');
+
+    if (fetchError) {
+      setError('Failed to get participants for the draw.');
+      setIsLoading(false);
+      return;
+    }
+
+    // Update the local state to keep the user list in sync
+    setUsers(currentParticipants);
+
+    if (currentParticipants.length < 2) {
+      setError('At least 2 participants are required to select a winner.');
+      setIsLoading(false);
+      return;
+    }
 
     setTimeout(() => {
-      const randomIndex = Math.floor(Math.random() * users.length);
-      setSelectedUser(users[randomIndex]);
+      const randomIndex = Math.floor(Math.random() * currentParticipants.length);
+      setSelectedUser(currentParticipants[randomIndex]);
       setIsLoading(false);
     }, 2500);
   };
   
-  const handleReset = () => {
-    setUsers([]);
-    setSelectedUser(null);
-    setError(null);
+  const handleReset = async () => {
+    setIsLoading(true);
+    const { error: deleteError } = await supabase.from('participants').delete().gt('id', 0);
+
+    if (deleteError) {
+      setError('Failed to reset participants.');
+      console.error(deleteError);
+    } else {
+      setUsers([]);
+      setSelectedUser(null);
+      setError(null);
+    }
     setIsLoading(false);
   }
 
@@ -60,6 +117,8 @@ const App: React.FC = () => {
         <main className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div>
             <RegistrationForm onRegister={handleRegister} error={error} />
+            {/* Fix: Render UserList to display registered participants. */}
+            <UserList users={users} />
           </div>
           <div className="lg:sticky top-8 self-start">
             <SelectionPanel
