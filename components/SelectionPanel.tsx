@@ -75,7 +75,7 @@ const SelectionPanel: React.FC<SelectionPanelProps> = ({
           className="w-full sm:w-auto flex items-center justify-center bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-md transition-colors duration-300 disabled:bg-slate-600"
         >
           <RefreshCwIcon className="w-5 h-5" />
-          <span className="sm:hidden ml-2">Reset All</span>
+          <span className="sm:inline hidden ml-2">Reset All</span>
         </button>
       </div>
     </div>
