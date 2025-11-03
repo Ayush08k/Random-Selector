@@ -1,0 +1,5 @@
+{
+  "name": "Random Name Selector",
+  "description": "A web application to register participants by name and email, and then randomly select a winner from the registered list. It provides a clean and interactive interface for managing a raffle or drawing.",
+  "requestFramePermissions": []
+}
